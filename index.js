@@ -1,11 +1,11 @@
 var _ = require('lodash');
 var fs = require('fs');
-var lwip = require('lwip');
 var path = require('path');
 var color = require('color');
 var layout = require('layout');
 var imageinfo = require('imageinfo');
 var templater = require('spritesheet-templates');
+var Jimp = require('jimp');
 
 var util = require('./lib/util');
 var opts = require('./lib/conf');
@@ -336,9 +336,9 @@ SpriteWebpackPlugin.prototype.apply = function(compiler) {
     var index = 0;
     var layer;
     var length;
-    var checkError;
     var pasteImage;
     var addItem;
+    var checkError;
 
     if (!self.options.info[i]) {
       return;
@@ -351,32 +351,29 @@ SpriteWebpackPlugin.prototype.apply = function(compiler) {
       if (err) {
         throw err;
       }
-    };
+    }
 
-    pasteImage = function(err, canvas, img) {
-      checkError(err);
-
-      canvas.paste(layer.items[index].x, layer.items[index].y, img, function(_err, output) {
+    pasteImage = function(_err, canvas, img) {
+      canvas.composite(img, layer.items[index].x, layer.items[index].y, (__err, output) => {
+        console.log(__err, output);
         if (++index < length) {
           addItem(_err, canvas);
         } else {
-          output.writeFile(path.join(self.options.outputImg, self.options.name + ending + '.' + self.options.format), function() {});
+          output.write(path.join(self.options.outputImg, self.options.name + ending + '.' + self.options.format), function() {});
         }
       });
     };
 
     addItem = function(err, canvas) {
       checkError(err);
-
-      lwip.open(layer.items[index].meta.path, function(_err, img) {
-        pasteImage(_err, canvas, img);
-      });
+      Jimp.read(layer.items[index].meta.path).then((img) => {
+        pasteImage(err, canvas, img);
+      }).catch(checkError);
     };
 
-    lwip.create(
+    new Jimp(
       layer.width,
       layer.height,
-      self.options.color,
       addItem
     );
   };
